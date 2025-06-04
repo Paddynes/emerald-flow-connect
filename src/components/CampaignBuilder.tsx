@@ -32,6 +32,8 @@ const CampaignBuilder = () => {
   const [draggedModule, setDraggedModule] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
+  const [tempConnection, setTempConnection] = useState<{x: number, y: number} | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const moduleTypes: ModuleType[] = [
@@ -85,9 +87,9 @@ const CampaignBuilder = () => {
   };
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (draggedModule) {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (rect) {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (rect) {
+      if (draggedModule) {
         setModules(prev => prev.map(module => 
           module.id === draggedModule
             ? {
@@ -97,16 +99,24 @@ const CampaignBuilder = () => {
               }
             : module
         ));
+      } else if (isConnecting) {
+        setTempConnection({
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        });
       }
     }
-  }, [draggedModule, dragOffset]);
+  }, [draggedModule, dragOffset, isConnecting]);
 
   const handleMouseUp = useCallback(() => {
     setDraggedModule(null);
+    setIsConnecting(false);
+    setTempConnection(null);
+    setConnectingFrom(null);
   }, []);
 
   React.useEffect(() => {
-    if (draggedModule) {
+    if (draggedModule || isConnecting) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       return () => {
@@ -114,11 +124,13 @@ const CampaignBuilder = () => {
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [draggedModule, handleMouseMove, handleMouseUp]);
+  }, [draggedModule, isConnecting, handleMouseMove, handleMouseUp]);
 
   // Connection functionality
-  const handleConnectionStart = (moduleId: string) => {
+  const handleConnectionStart = (e: React.MouseEvent, moduleId: string) => {
+    e.stopPropagation();
     setConnectingFrom(moduleId);
+    setIsConnecting(true);
   };
 
   const handleConnectionEnd = (moduleId: string) => {
@@ -131,6 +143,8 @@ const CampaignBuilder = () => {
       setConnections(prev => [...prev, newConnection]);
     }
     setConnectingFrom(null);
+    setIsConnecting(false);
+    setTempConnection(null);
   };
 
   const deleteModule = (moduleId: string) => {
@@ -147,18 +161,21 @@ const CampaignBuilder = () => {
 
   // Draw connection lines
   const renderConnections = () => {
-    return connections.map(connection => {
+    const lines = [];
+    
+    // Render permanent connections
+    connections.forEach(connection => {
       const fromModule = modules.find(m => m.id === connection.from);
       const toModule = modules.find(m => m.id === connection.to);
       
-      if (!fromModule || !toModule) return null;
+      if (!fromModule || !toModule) return;
 
       const fromX = fromModule.x + 128; // Center of module
       const fromY = fromModule.y + 80; // Bottom of module
       const toX = toModule.x + 128;
       const toY = toModule.y;
 
-      return (
+      lines.push(
         <svg
           key={connection.id}
           className="absolute top-0 left-0 w-full h-full pointer-events-none"
@@ -188,6 +205,35 @@ const CampaignBuilder = () => {
         </svg>
       );
     });
+
+    // Render temporary connection line while dragging
+    if (isConnecting && connectingFrom && tempConnection) {
+      const fromModule = modules.find(m => m.id === connectingFrom);
+      if (fromModule) {
+        const fromX = fromModule.x + 128;
+        const fromY = fromModule.y + 80;
+
+        lines.push(
+          <svg
+            key="temp-connection"
+            className="absolute top-0 left-0 w-full h-full pointer-events-none"
+            style={{ zIndex: 1 }}
+          >
+            <line
+              x1={fromX}
+              y1={fromY}
+              x2={tempConnection.x}
+              y2={tempConnection.y}
+              stroke="#10B981"
+              strokeWidth="2"
+              strokeDasharray="5,5"
+            />
+          </svg>
+        );
+      }
+    }
+
+    return lines;
   };
 
   return (
@@ -265,11 +311,8 @@ const CampaignBuilder = () => {
                   
                   {/* Connection point */}
                   <div
-                    className="connection-point absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 w-4 h-4 bg-white border-2 border-black rounded-full cursor-pointer hover:bg-emerald-500"
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                      handleConnectionStart(module.id);
-                    }}
+                    className="connection-point absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 w-4 h-4 bg-white border-2 border-black rounded-full cursor-pointer hover:bg-emerald-500 hover:border-emerald-500"
+                    onMouseDown={(e) => handleConnectionStart(e, module.id)}
                     onMouseUp={(e) => {
                       e.stopPropagation();
                       handleConnectionEnd(module.id);
