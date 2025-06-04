@@ -1,6 +1,5 @@
-
 import React, { useState, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface Module {
   id: string;
@@ -24,6 +23,7 @@ interface ModuleType {
 }
 
 const CampaignBuilder = () => {
+  const navigate = useNavigate();
   const [modules, setModules] = useState<Module[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
@@ -34,6 +34,7 @@ const CampaignBuilder = () => {
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
   const [tempConnection, setTempConnection] = useState<{x: number, y: number} | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [linkedinConnected] = useState(true); // Mock connection status
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const moduleTypes: ModuleType[] = [
@@ -131,9 +132,18 @@ const CampaignBuilder = () => {
     e.stopPropagation();
     setConnectingFrom(moduleId);
     setIsConnecting(true);
+    
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (rect) {
+      setTempConnection({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+    }
   };
 
-  const handleConnectionEnd = (moduleId: string) => {
+  const handleConnectionEnd = (e: React.MouseEvent, moduleId: string) => {
+    e.stopPropagation();
     if (connectingFrom && connectingFrom !== moduleId) {
       const newConnection: Connection = {
         id: `${connectingFrom}-${moduleId}`,
@@ -172,8 +182,8 @@ const CampaignBuilder = () => {
 
       const fromX = fromModule.x + 128; // Center of module
       const fromY = fromModule.y + 80; // Bottom of module
-      const toX = toModule.x + 128;
-      const toY = toModule.y;
+      const toX = toModule.x + 128; // Center of target module
+      const toY = toModule.y; // Top of target module
 
       lines.push(
         <svg
@@ -183,7 +193,7 @@ const CampaignBuilder = () => {
         >
           <defs>
             <marker
-              id="arrowhead"
+              id={`arrowhead-${connection.id}`}
               markerWidth="10"
               markerHeight="7"
               refX="9"
@@ -200,7 +210,7 @@ const CampaignBuilder = () => {
             y2={toY}
             stroke="#000"
             strokeWidth="2"
-            markerEnd="url(#arrowhead)"
+            markerEnd={`url(#arrowhead-${connection.id})`}
           />
         </svg>
       );
@@ -236,6 +246,11 @@ const CampaignBuilder = () => {
     return lines;
   };
 
+  const handleNext = () => {
+    // Navigate to campaign setup flow
+    navigate('/campaigns/1/setup');
+  };
+
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header Bar */}
@@ -251,13 +266,23 @@ const CampaignBuilder = () => {
         />
         <div className="flex items-center space-x-4">
           <div className="text-sm">
-            <span className="text-emerald-500">LinkedIn: Connected ✓</span>
+            <span className={linkedinConnected ? "text-emerald-500" : "text-red-500"}>
+              LinkedIn: {linkedinConnected ? "Connected ✓" : "Not Connected"}
+            </span>
+            {!linkedinConnected && (
+              <Link to="/linkedin-connect" className="ml-2 text-emerald-500 hover:text-emerald-600">
+                Connect
+              </Link>
+            )}
           </div>
           <div className="flex space-x-3">
             <button className="px-4 py-2 border border-black text-black hover:bg-gray-50 transition-colors">
               Save
             </button>
-            <button className="px-4 py-2 bg-emerald-500 text-white hover:bg-emerald-600 transition-colors">
+            <button 
+              onClick={handleNext}
+              className="px-4 py-2 bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+            >
               Next
             </button>
           </div>
@@ -313,10 +338,7 @@ const CampaignBuilder = () => {
                   <div
                     className="connection-point absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 w-4 h-4 bg-white border-2 border-black rounded-full cursor-pointer hover:bg-emerald-500 hover:border-emerald-500"
                     onMouseDown={(e) => handleConnectionStart(e, module.id)}
-                    onMouseUp={(e) => {
-                      e.stopPropagation();
-                      handleConnectionEnd(module.id);
-                    }}
+                    onMouseUp={(e) => handleConnectionEnd(e, module.id)}
                   />
                 </div>
               );
