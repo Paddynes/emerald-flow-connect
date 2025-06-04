@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { Plus } from 'lucide-react';
 
 interface Contact {
   id: number;
@@ -89,10 +89,26 @@ const Contacts = () => {
   const [selectAll, setSelectAll] = useState(false);
   const [sortColumn, setSortColumn] = useState<string>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [resizing, setResizing] = useState<string | null>(null);
+  const [showAddColumn, setShowAddColumn] = useState(false);
+  const [newColumnName, setNewColumnName] = useState('');
 
   const selectedCount = contacts.filter(c => c.selected).length;
   const visibleColumns = columns.filter(col => col.visible);
+
+  const addNewColumn = () => {
+    if (newColumnName.trim()) {
+      const newColumn: Column = {
+        key: newColumnName.toLowerCase().replace(/\s+/g, '_'),
+        label: newColumnName,
+        visible: true,
+        width: 120,
+        sortable: true
+      };
+      setColumns([...columns, newColumn]);
+      setNewColumnName('');
+      setShowAddColumn(false);
+    }
+  };
 
   const toggleSelectAll = () => {
     const newSelectAll = !selectAll;
@@ -226,6 +242,51 @@ const Contacts = () => {
               </div>
             </PopoverContent>
           </Popover>
+          
+          <Popover open={showAddColumn} onOpenChange={setShowAddColumn}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="border-black text-black hover:bg-gray-50">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Column
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 border-black">
+              <div className="space-y-4">
+                <h4 className="font-medium text-black">Add New Column</h4>
+                <div>
+                  <label className="block text-sm font-medium text-black mb-2">Column Name</label>
+                  <input
+                    type="text"
+                    value={newColumnName}
+                    onChange={(e) => setNewColumnName(e.target.value)}
+                    placeholder="e.g., Phone Number"
+                    className="w-full p-2 border border-black text-sm"
+                    onKeyPress={(e) => e.key === 'Enter' && addNewColumn()}
+                  />
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    onClick={addNewColumn}
+                    disabled={!newColumnName.trim()}
+                    className="bg-emerald-500 text-white hover:bg-emerald-600"
+                  >
+                    Add
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setShowAddColumn(false);
+                      setNewColumnName('');
+                    }}
+                    variant="outline"
+                    className="border-black text-black hover:bg-gray-50"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
           <Button className="bg-emerald-500 text-white hover:bg-emerald-600">
             Import CSV
           </Button>

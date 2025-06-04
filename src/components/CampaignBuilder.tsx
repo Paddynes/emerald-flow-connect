@@ -34,7 +34,7 @@ const CampaignBuilder = () => {
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
   const [tempConnection, setTempConnection] = useState<{x: number, y: number} | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [linkedinConnected] = useState(true); // Mock connection status
+  const [linkedinConnected] = useState(true);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const moduleTypes: ModuleType[] = [
@@ -185,6 +185,13 @@ const CampaignBuilder = () => {
       const toX = toModule.x + 128; // Center of target module
       const toY = toModule.y; // Top of target module
 
+      // Create smooth curved path
+      const midY = fromY + (toY - fromY) / 2;
+      const controlPoint1Y = fromY + 50;
+      const controlPoint2Y = toY - 50;
+
+      const pathData = `M ${fromX} ${fromY} C ${fromX} ${controlPoint1Y}, ${toX} ${controlPoint2Y}, ${toX} ${toY}`;
+
       lines.push(
         <svg
           key={connection.id}
@@ -194,23 +201,27 @@ const CampaignBuilder = () => {
           <defs>
             <marker
               id={`arrowhead-${connection.id}`}
-              markerWidth="10"
-              markerHeight="7"
-              refX="9"
-              refY="3.5"
+              markerWidth="12"
+              markerHeight="8"
+              refX="11"
+              refY="4"
               orient="auto"
+              markerUnits="strokeWidth"
             >
-              <polygon points="0 0, 10 3.5, 0 7" fill="#000" />
+              <polygon points="0 0, 12 4, 0 8" fill="#000" />
             </marker>
+            <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.1"/>
+            </filter>
           </defs>
-          <line
-            x1={fromX}
-            y1={fromY}
-            x2={toX}
-            y2={toY}
+          <path
+            d={pathData}
             stroke="#000"
-            strokeWidth="2"
+            strokeWidth="3"
+            fill="none"
             markerEnd={`url(#arrowhead-${connection.id})`}
+            filter="url(#shadow)"
+            className="transition-all duration-200"
           />
         </svg>
       );
@@ -222,6 +233,9 @@ const CampaignBuilder = () => {
       if (fromModule) {
         const fromX = fromModule.x + 128;
         const fromY = fromModule.y + 80;
+        
+        const controlPointY = fromY + 50;
+        const pathData = `M ${fromX} ${fromY} Q ${fromX} ${controlPointY} ${tempConnection.x} ${tempConnection.y}`;
 
         lines.push(
           <svg
@@ -229,14 +243,26 @@ const CampaignBuilder = () => {
             className="absolute top-0 left-0 w-full h-full pointer-events-none"
             style={{ zIndex: 1 }}
           >
-            <line
-              x1={fromX}
-              y1={fromY}
-              x2={tempConnection.x}
-              y2={tempConnection.y}
+            <defs>
+              <marker
+                id="temp-arrowhead"
+                markerWidth="10"
+                markerHeight="7"
+                refX="9"
+                refY="3.5"
+                orient="auto"
+              >
+                <polygon points="0 0, 10 3.5, 0 7" fill="#10B981" />
+              </marker>
+            </defs>
+            <path
+              d={pathData}
               stroke="#10B981"
-              strokeWidth="2"
-              strokeDasharray="5,5"
+              strokeWidth="3"
+              fill="none"
+              strokeDasharray="8,4"
+              markerEnd="url(#temp-arrowhead)"
+              className="animate-pulse"
             />
           </svg>
         );
@@ -334,12 +360,14 @@ const CampaignBuilder = () => {
                     </button>
                   </div>
                   
-                  {/* Connection point */}
+                  {/* Enhanced connection point */}
                   <div
-                    className="connection-point absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 w-4 h-4 bg-white border-2 border-black rounded-full cursor-pointer hover:bg-emerald-500 hover:border-emerald-500"
+                    className="connection-point absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 w-5 h-5 bg-white border-2 border-black rounded-full cursor-pointer hover:bg-emerald-500 hover:border-emerald-500 hover:scale-110 transition-all duration-200 flex items-center justify-center"
                     onMouseDown={(e) => handleConnectionStart(e, module.id)}
                     onMouseUp={(e) => handleConnectionEnd(e, module.id)}
-                  />
+                  >
+                    <div className="w-2 h-2 bg-gray-400 rounded-full group-hover:bg-white"></div>
+                  </div>
                 </div>
               );
             })}
